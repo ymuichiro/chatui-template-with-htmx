@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Chat UI Template</h1>
+<div id="chat-log" class="chat-log"></div>
+
+<form
+  id="chat-form"
+  hx-post="/chat/messages"
+  hx-target="#chat-log"
+  hx-swap="beforeend"
+  class="chat-form"
+>
+  <input type="hidden" name="conversation_id" id="conversation_id" />
+  <input type="text" name="message" placeholder="メッセージを入力" required />
+  <button type="submit">送信</button>
+</form>
+{% endblock %}

@@ -1,0 +1,9 @@
+body { font-family: sans-serif; background: #f5f7fb; }
+.container { max-width: 800px; margin: 2rem auto; }
+.chat-log { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
+.message { border-radius: 10px; padding: 0.75rem 1rem; white-space: pre-wrap; }
+.message.user { align-self: flex-end; background: #dbeafe; }
+.message.assistant { align-self: flex-start; background: #e5e7eb; min-width: 320px; }
+.tool-area { color: #374151; font-size: 0.8rem; margin: 0 0 0.25rem 0; }
+.chat-form { display: flex; gap: 0.5rem; }
+.chat-form input[type='text'] { flex: 1; padding: 0.5rem; }
