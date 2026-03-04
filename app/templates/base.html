@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat UI Template</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link rel="stylesheet" href="/static/css/app.css" />
+  </head>
+  <body>
+    <main class="container">{% block content %}{% endblock %}</main>
+    <script>
+      const initialized = new Set();
+
+      function connectStream(container) {
+        const url = container.dataset.streamUrl;
+        const targetId = container.dataset.targetId;
+        const target = document.getElementById(targetId);
+        if (!url || !target || initialized.has(container)) return;
+        initialized.add(container);
+
+        const toolArea = target.querySelector('.tool-area');
+        const textArea = target.querySelector('.assistant-text');
+        const statusArea = target.querySelector('.status');
+        const source = new EventSource(url);
+
+        source.addEventListener('token', (e) => {
+          const data = JSON.parse(e.data);
+          textArea.textContent += data.text || '';
+        });
+        source.addEventListener('tool_call_start', (e) => {
+          const data = JSON.parse(e.data);
+          toolArea.textContent += `\n🔧 ${data.name} (${data.call_id})\n`;
+        });
+        source.addEventListener('tool_call_args', (e) => {
+          const data = JSON.parse(e.data);
+          toolArea.textContent += `args: ${JSON.stringify(data.args)}\n`;
+        });
+        source.addEventListener('tool_result', (e) => {
+          const data = JSON.parse(e.data);
+          toolArea.textContent += `result: ${JSON.stringify(data.result)}\n`;
+        });
+        source.addEventListener('error', (e) => {
+          statusArea.textContent = 'ストリームエラー';
+          source.close();
+        });
+        source.addEventListener('done', () => {
+          statusArea.textContent = '';
+          source.close();
+        });
+      }
+
+      const observer = new MutationObserver(() => {
+        document.querySelectorAll('.stream-init').forEach(connectStream);
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    </script>
+  </body>
+</html>
