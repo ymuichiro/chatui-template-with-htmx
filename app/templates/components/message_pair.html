@@ -1,0 +1,14 @@
+<div class="message user">{{ user_msg.content }}</div>
+<div class="message assistant" id="ai-msg-{{ assistant_msg.id }}">
+  <pre class="tool-area"></pre>
+  <span class="assistant-text"></span>
+  <span class="status">...</span>
+</div>
+<div
+  class="stream-init"
+  data-stream-url="/chat/messages/{{ assistant_msg.id }}/stream"
+  data-target-id="ai-msg-{{ assistant_msg.id }}"
+></div>
+<script>
+  document.getElementById('conversation_id').value = '{{ conversation_id }}';
+</script>
