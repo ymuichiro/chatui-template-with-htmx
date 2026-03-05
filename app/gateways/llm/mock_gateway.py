@@ -7,7 +7,7 @@ from app.schemas.stream_events import StreamEvent
 
 class MockGateway:
     async def stream_chat(self, messages: list[Message]) -> AsyncIterator[StreamEvent]:
-        text = "こんにちは！これは mock 応答です。ツール呼び出しも表示します。"
+        text = "Hello! This is a mock response. Tool-call events are shown in real time."
 
         yield StreamEvent(event="tool_call_start", data={"name": "get_weather", "call_id": "call_1"})
         await asyncio.sleep(0.1)

@@ -1,14 +1,26 @@
-<div class="message user">{{ user_msg.content }}</div>
-<div class="message assistant" id="ai-msg-{{ assistant_msg.id }}">
+<article class="message user">
+  <div class="message-label">You</div>
+  <span class="message-text">{{ user_msg.content }}</span>
+</article>
+<article class="message assistant" id="ai-msg-{{ assistant_msg.id }}">
+  <div class="message-label">Assistant</div>
   <pre class="tool-area"></pre>
   <span class="assistant-text"></span>
   <span class="status">...</span>
-</div>
+</article>
 <div
   class="stream-init"
   data-stream-url="/chat/messages/{{ assistant_msg.id }}/stream"
   data-target-id="ai-msg-{{ assistant_msg.id }}"
 ></div>
 <script>
-  document.getElementById('conversation_id').value = '{{ conversation_id }}';
+  const conversationId = '{{ conversation_id }}';
+  document.getElementById('conversation_id').value = conversationId;
+  if (window.location.pathname !== `/c/${conversationId}`) {
+    window.history.pushState({}, '', `/c/${conversationId}`);
+  }
+  const log = document.getElementById('chat-log');
+  const emptyState = log?.querySelector('.empty-chat-state');
+  if (emptyState) emptyState.remove();
+  if (log) log.scrollTop = log.scrollHeight;
 </script>

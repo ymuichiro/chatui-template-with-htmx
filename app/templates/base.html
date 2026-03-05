@@ -1,16 +1,229 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chat UI Template</title>
+    <title>Chat UI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <link rel="stylesheet" href="/static/css/app.css" />
   </head>
   <body>
-    <main class="container">{% block content %}{% endblock %}</main>
+    <main class="app-root">{% block content %}{% endblock %}</main>
     <script>
       const initialized = new Set();
+      const EMPTY_CHAT_HTML =
+        '<div class="empty-chat-state">Select a conversation from the sidebar or send a new message to start one.</div>';
+      let recognition = null;
+      let isListening = false;
+
+      function scrollChatLogToBottom() {
+        const chatLog = document.getElementById('chat-log');
+        if (chatLog) {
+          chatLog.scrollTop = chatLog.scrollHeight;
+        }
+      }
+
+      function setActiveConversationItem(conversationId) {
+        document.querySelectorAll('.conversation-item').forEach((item) => {
+          item.classList.toggle('is-active', item.dataset.conversationId === conversationId);
+        });
+      }
+
+      function refreshConversationList() {
+        const target = document.getElementById('conversation-list');
+        if (!target || typeof htmx === 'undefined') return;
+        const activeConversationId = document.getElementById('conversation_id')?.value || '';
+        const url = activeConversationId
+          ? `/chat/conversations?active_id=${encodeURIComponent(activeConversationId)}`
+          : '/chat/conversations';
+        htmx.ajax('GET', url, { target: '#conversation-list', swap: 'innerHTML' });
+      }
+
+      function setSidebarOpen(isOpen) {
+        document.body.classList.toggle('sidebar-open', isOpen);
+        document.body.classList.toggle('sidebar-closed', !isOpen);
+        const toggle = document.getElementById('sidebar-toggle');
+        if (toggle) {
+          toggle.setAttribute('aria-expanded', String(isOpen));
+        }
+      }
+
+      function setVoiceHint(message, isError = false) {
+        const hint = document.getElementById('voice-hint');
+        if (!hint) return;
+        const hasMessage = Boolean(message);
+        hint.hidden = !hasMessage;
+        hint.textContent = hasMessage ? message : '';
+        hint.classList.toggle('is-error', Boolean(isError && hasMessage));
+      }
+
+      function renderAttachmentList(files) {
+        const attachmentList = document.getElementById('attachment-list');
+        if (!attachmentList) return;
+        attachmentList.innerHTML = '';
+        const hasFiles = Boolean(files && files.length > 0);
+        attachmentList.hidden = !hasFiles;
+        if (!hasFiles) return;
+
+        const countLabel = document.createElement('span');
+        countLabel.className = 'attachment-caption';
+        countLabel.textContent = `${files.length} file${files.length > 1 ? 's' : ''} selected`;
+        attachmentList.appendChild(countLabel);
+
+        Array.from(files).forEach((file) => {
+          const chip = document.createElement('span');
+          chip.className = 'attachment-chip';
+          chip.textContent = file.name;
+          attachmentList.appendChild(chip);
+        });
+      }
+
+      function startNewChat() {
+        const idField = document.getElementById('conversation_id');
+        if (idField) idField.value = '';
+        if (window.location.pathname !== '/') {
+          window.history.pushState({}, '', '/');
+        }
+
+        const chatLog = document.getElementById('chat-log');
+        if (chatLog) {
+          chatLog.innerHTML = EMPTY_CHAT_HTML;
+        }
+
+        const messageInput = document.getElementById('message-input');
+        if (messageInput) messageInput.value = '';
+
+        const fileInput = document.getElementById('file-input');
+        if (fileInput) fileInput.value = '';
+        renderAttachmentList([]);
+
+        setVoiceHint('');
+        setActiveConversationItem('');
+      }
+
+      function initComposerKeyboardSubmit() {
+        const form = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        if (!form || !messageInput) return;
+
+        const syncTextareaHeight = () => {
+          messageInput.style.height = 'auto';
+          messageInput.style.height = `${Math.min(messageInput.scrollHeight, 160)}px`;
+        };
+
+        let isImeComposing = false;
+
+        messageInput.addEventListener('compositionstart', () => {
+          isImeComposing = true;
+        });
+
+        messageInput.addEventListener('compositionend', () => {
+          isImeComposing = false;
+        });
+
+        messageInput.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter') return;
+
+          // Shift+Enter inserts a newline.
+          if (event.shiftKey) return;
+
+          // Do not submit while IME composition is active.
+          if (event.isComposing || isImeComposing || event.keyCode === 229) return;
+
+          event.preventDefault();
+          if (!messageInput.value.trim()) return;
+          form.requestSubmit();
+        });
+
+        messageInput.addEventListener('input', syncTextareaHeight);
+        syncTextareaHeight();
+      }
+
+      function initFileAttachmentControls() {
+        const attachButton = document.getElementById('attach-button');
+        const fileInput = document.getElementById('file-input');
+        if (!attachButton || !fileInput) return;
+
+        attachButton.addEventListener('click', () => {
+          fileInput.click();
+        });
+        fileInput.addEventListener('change', () => {
+          renderAttachmentList(fileInput.files);
+        });
+      }
+
+      function initVoiceInputControls() {
+        const voiceButton = document.getElementById('voice-button');
+        const messageInput = document.getElementById('message-input');
+        if (!voiceButton || !messageInput) return;
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          voiceButton.disabled = true;
+          setVoiceHint('Voice input is not supported in this browser.');
+          return;
+        }
+
+        recognition = new SpeechRecognition();
+        const preferredLanguage = navigator.languages?.[0] || navigator.language || document.documentElement.lang || 'en-US';
+        recognition.lang = preferredLanguage;
+        recognition.interimResults = true;
+        recognition.continuous = false;
+
+        recognition.onstart = () => {
+          isListening = true;
+          voiceButton.classList.add('is-listening');
+          voiceButton.setAttribute('aria-pressed', 'true');
+          setVoiceHint('Listening...');
+        };
+
+        recognition.onresult = (event) => {
+          let interimText = '';
+          let finalText = '';
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            const transcript = event.results[i][0]?.transcript?.trim();
+            if (!transcript) continue;
+            if (event.results[i].isFinal) {
+              finalText += `${finalText ? ' ' : ''}${transcript}`;
+            } else {
+              interimText += `${interimText ? ' ' : ''}${transcript}`;
+            }
+          }
+
+          if (finalText) {
+            messageInput.value = `${messageInput.value.trimEnd()} ${finalText}`.trim();
+          }
+          setVoiceHint(interimText ? `Listening: ${interimText}` : 'Listening...');
+        };
+
+        recognition.onerror = (event) => {
+          setVoiceHint(`Voice input error: ${event.error}.`, true);
+        };
+
+        recognition.onend = () => {
+          isListening = false;
+          voiceButton.classList.remove('is-listening');
+          voiceButton.setAttribute('aria-pressed', 'false');
+          if (!document.getElementById('voice-hint')?.classList.contains('is-error')) {
+            setVoiceHint('');
+          }
+        };
+
+        voiceButton.addEventListener('click', () => {
+          if (isListening) {
+            recognition.stop();
+            return;
+          }
+          setVoiceHint('');
+          recognition.start();
+        });
+      }
 
       function connectStream(container) {
         const url = container.dataset.streamUrl;
@@ -27,28 +240,110 @@
         source.addEventListener('token', (e) => {
           const data = JSON.parse(e.data);
           textArea.textContent += data.text || '';
+          scrollChatLogToBottom();
         });
         source.addEventListener('tool_call_start', (e) => {
           const data = JSON.parse(e.data);
-          toolArea.textContent += `\n🔧 ${data.name} (${data.call_id})\n`;
+          target.classList.add('has-tools');
+          toolArea.textContent += `tool: ${data.name} (${data.call_id})\n`;
+          scrollChatLogToBottom();
         });
         source.addEventListener('tool_call_args', (e) => {
           const data = JSON.parse(e.data);
+          target.classList.add('has-tools');
           toolArea.textContent += `args: ${JSON.stringify(data.args)}\n`;
+          scrollChatLogToBottom();
         });
         source.addEventListener('tool_result', (e) => {
           const data = JSON.parse(e.data);
+          target.classList.add('has-tools');
           toolArea.textContent += `result: ${JSON.stringify(data.result)}\n`;
+          scrollChatLogToBottom();
         });
-        source.addEventListener('error', (e) => {
-          statusArea.textContent = 'ストリームエラー';
+        source.addEventListener('error', () => {
+          statusArea.textContent = 'Stream error';
           source.close();
+          refreshConversationList();
         });
         source.addEventListener('done', () => {
           statusArea.textContent = '';
           source.close();
+          refreshConversationList();
         });
       }
+
+      document.addEventListener('click', (event) => {
+        const item = event.target.closest('.conversation-item');
+        if (!item) return;
+        const conversationId = item.dataset.conversationId;
+        const idField = document.getElementById('conversation_id');
+        if (idField && conversationId) idField.value = conversationId;
+        setActiveConversationItem(conversationId);
+
+        if (window.matchMedia('(max-width: 960px)').matches) {
+          setSidebarOpen(false);
+        }
+      });
+
+      document.addEventListener('DOMContentLoaded', () => {
+        if (!document.getElementById('sidebar')) {
+          return;
+        }
+
+        setSidebarOpen(true);
+
+        const toggle = document.getElementById('sidebar-toggle');
+        if (toggle) {
+          toggle.addEventListener('click', () => {
+            setSidebarOpen(document.body.classList.contains('sidebar-closed'));
+          });
+        }
+
+        const newChatButton = document.getElementById('new-chat-button');
+        if (newChatButton) {
+          newChatButton.addEventListener('click', () => {
+            startNewChat();
+          });
+        }
+
+        initFileAttachmentControls();
+        initVoiceInputControls();
+        initComposerKeyboardSubmit();
+        refreshConversationList();
+        setActiveConversationItem(document.getElementById('conversation_id')?.value || '');
+        scrollChatLogToBottom();
+      });
+
+      document.body.addEventListener('conversationsChanged', () => {
+        refreshConversationList();
+        setActiveConversationItem(document.getElementById('conversation_id')?.value || '');
+      });
+
+      document.body.addEventListener('htmx:afterSwap', (event) => {
+        if (event.target.id === 'chat-log') {
+          scrollChatLogToBottom();
+        }
+        if (event.target.id === 'conversation-list') {
+          setActiveConversationItem(document.getElementById('conversation_id')?.value || '');
+        }
+      });
+
+      document.body.addEventListener('htmx:afterRequest', (event) => {
+        if (event.detail.elt?.id === 'chat-form') {
+          if (event.detail.successful === false) return;
+
+          const input = document.getElementById('message-input');
+          if (input) {
+            input.value = '';
+            input.style.height = 'auto';
+          }
+
+          const fileInput = document.getElementById('file-input');
+          if (fileInput) fileInput.value = '';
+          renderAttachmentList([]);
+          setVoiceHint('');
+        }
+      });
 
       const observer = new MutationObserver(() => {
         document.querySelectorAll('.stream-init').forEach(connectStream);

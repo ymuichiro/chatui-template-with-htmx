@@ -1,0 +1,29 @@
+{% if messages %}
+{% for msg in messages %}
+<article class="message {{ msg.role }}">
+  <div class="message-label">
+    {% if msg.role == "user" %}You{% elif msg.role == "assistant" %}Assistant{% else %}System{% endif %}
+  </div>
+  {% if msg.role == "assistant" %}
+  <pre class="tool-area"></pre>
+  <span class="assistant-text">{{ msg.content }}</span>
+  {% else %}
+  <span class="message-text">{{ msg.content }}</span>
+  {% endif %}
+</article>
+{% endfor %}
+{% elif conversation_id %}
+<div class="empty-chat-state">This conversation has no messages yet.</div>
+{% else %}
+<div class="empty-chat-state">Select a conversation from the sidebar or send a new message to start one.</div>
+{% endif %}
+{% if conversation_id %}
+<script>
+  const idField = document.getElementById('conversation_id');
+  if (idField) idField.value = '{{ conversation_id }}';
+  const log = document.getElementById('chat-log');
+  if (log) log.scrollTop = log.scrollHeight;
+  const event = new CustomEvent('conversationsChanged');
+  document.body.dispatchEvent(event);
+</script>
+{% endif %}

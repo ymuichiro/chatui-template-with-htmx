@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
@@ -31,6 +32,20 @@ def _extract_bearer(authorization: Optional[str]) -> Optional[str]:
     return authorization.split(" ", 1)[1].strip() or None
 
 
+def _build_dev_demo_claims() -> dict:
+    now = datetime.now(timezone.utc)
+    return {
+        "sub": settings.dev_demo_user_id,
+        "name": settings.dev_demo_user_name,
+        "email": settings.dev_demo_user_email,
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(hours=8)).timestamp()),
+        "dummy_auth": True,
+    }
+
+
 def get_current_user(
     authorization: Optional[str] = Header(default=None),
     x_forwarded_jwt: Optional[str] = Header(default=None),
@@ -51,6 +66,13 @@ def get_current_user(
     else:
         token = x_forwarded_jwt or _extract_bearer(authorization)
         if not token:
+            if settings.dev_demo_auto_auth_without_jwt:
+                claims = _build_dev_demo_claims()
+                return CurrentUser(
+                    user_id=settings.dev_demo_user_id,
+                    claims=claims,
+                    auth_mode=settings.auth_mode,
+                )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Missing JWT header",

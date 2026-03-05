@@ -1,17 +1,61 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Chat UI Template</h1>
-<div id="chat-log" class="chat-log"></div>
+<div class="app-shell">
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-head">
+      <h2>Conversations</h2>
+      <button id="new-chat-button" class="new-chat-button" type="button">New Chat</button>
+    </div>
+    <div id="conversation-list" class="conversation-list">
+      {% include "components/conversation_list.html" %}
+    </div>
+  </aside>
 
-<form
-  id="chat-form"
-  hx-post="/chat/messages"
-  hx-target="#chat-log"
-  hx-swap="beforeend"
-  class="chat-form"
->
-  <input type="hidden" name="conversation_id" id="conversation_id" />
-  <input type="text" name="message" placeholder="メッセージを入力" required />
-  <button type="submit">送信</button>
+  <section class="chat-pane">
+    <header class="topbar">
+      <button id="sidebar-toggle" class="toggle-button" type="button" aria-controls="sidebar" aria-expanded="true" aria-label="Toggle sidebar">
+        <span class="hamburger-icon" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+      </button>
+      <h1>Chat</h1>
+    </header>
+
+    <div id="chat-log" class="chat-log">
+      {% include "components/conversation_messages.html" %}
+    </div>
+  </section>
+</div>
+
+<form id="chat-form" hx-post="/chat/messages" hx-target="#chat-log" hx-swap="beforeend" hx-encoding="multipart/form-data" class="chat-form">
+  <input type="hidden" name="conversation_id" id="conversation_id" value="{{ active_conversation_id or '' }}" />
+  <input
+    id="file-input"
+    type="file"
+    name="attachments"
+    multiple
+    accept="image/*,.pdf,.txt,.md,.csv,.json,.xml,.yaml,.yml,.log,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp"
+    hidden
+  />
+  <div class="composer-row">
+    <button id="attach-button" class="composer-icon-button" type="button" aria-label="Attach files" title="Attach files">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8.5 12.5L14.7 6.3a3 3 0 114.2 4.2l-8.1 8.1a5 5 0 11-7.1-7.1l8.8-8.8" />
+      </svg>
+    </button>
+    <button id="voice-button" class="composer-icon-button" type="button" aria-label="Voice input" title="Voice input">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3a3 3 0 00-3 3v5a3 3 0 106 0V6a3 3 0 00-3-3z" />
+        <path d="M6 10.5a6 6 0 0012 0" />
+        <path d="M12 16.5V21" />
+      </svg>
+    </button>
+    <textarea id="message-input" name="message" placeholder="Type a message" rows="1" required></textarea>
+    <button class="send-button" type="submit">Send</button>
+  </div>
+  <div id="attachment-list" class="attachment-list" aria-live="polite" hidden></div>
+  <div id="voice-hint" class="voice-hint" hidden></div>
 </form>
 {% endblock %}

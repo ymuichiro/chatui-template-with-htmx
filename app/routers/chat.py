@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
@@ -43,6 +43,47 @@ def create_message(
             "user_msg": user_msg,
             "assistant_msg": assistant_msg,
             "conversation_id": user_msg.conversation_id,
+        },
+        headers={"HX-Trigger": "conversationsChanged"},
+    )
+
+
+@router.get("/conversations", response_class=HTMLResponse)
+def list_conversations(
+    request: Request,
+    active_id: str | None = Query(default=None),
+    user: CurrentUser = Depends(get_current_user),
+):
+    chat_service: ChatService = request.app.state.chat_service
+    conversations = chat_service.list_conversations(user.user_id)
+    active_conversation_id = active_id or (conversations[0].id if conversations else None)
+    return templates.TemplateResponse(
+        "components/conversation_list.html",
+        {
+            "request": request,
+            "conversations": conversations,
+            "active_conversation_id": active_conversation_id,
+        },
+    )
+
+
+@router.get("/conversations/{conversation_id}/messages", response_class=HTMLResponse)
+def conversation_messages(
+    request: Request,
+    conversation_id: str,
+    user: CurrentUser = Depends(get_current_user),
+):
+    chat_service: ChatService = request.app.state.chat_service
+    try:
+        messages = chat_service.get_conversation_messages(user.user_id, conversation_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="conversation not found") from exc
+    return templates.TemplateResponse(
+        "components/conversation_messages.html",
+        {
+            "request": request,
+            "messages": messages,
+            "conversation_id": conversation_id,
         },
     )
 

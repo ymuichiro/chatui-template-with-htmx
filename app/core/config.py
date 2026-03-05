@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-secret-change-me"
     jwt_issuer: str = "chatui-dev"
     jwt_audience: str = "chatui"
+    dev_demo_auto_auth_without_jwt: bool = True
+    dev_demo_user_id: str = "local-dev-user"
+    dev_demo_user_name: str = "Local Dev User"
+    dev_demo_user_email: str = "local-dev@example.com"
 
     # Chat guard rails
     max_message_length: int = 4000

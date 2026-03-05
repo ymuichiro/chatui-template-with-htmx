@@ -1,0 +1,18 @@
+{% if conversations %}
+{% for conv in conversations %}
+<button
+  class="conversation-item{% if conv.id == active_conversation_id %} is-active{% endif %}"
+  type="button"
+  data-conversation-id="{{ conv.id }}"
+  hx-get="/chat/conversations/{{ conv.id }}/messages"
+  hx-push-url="/c/{{ conv.id }}"
+  hx-target="#chat-log"
+  hx-swap="innerHTML"
+>
+  <span class="conversation-title">{{ conv.title or "New conversation" }}</span>
+  <span class="conversation-meta">{{ conv.updated_at.strftime("%Y-%m-%d %H:%M") }}</span>
+</button>
+{% endfor %}
+{% else %}
+<div class="conversation-empty">No conversations yet.</div>
+{% endif %}
